@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { X, User, Car as IdCard, Key } from 'lucide-react';
+import { X, User, BadgeInfo, Key, FileText as ClipboardIcon } from 'lucide-react';
 
 interface AddEmployeeModalProps {
   onClose: () => void;
@@ -11,6 +11,7 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ onClose, onSave }) 
   const [formData, setFormData] = useState({
     name: '',
     ra: '',
+    cpf: '', // Adicionado
     username: '',
     password: '',
   });
@@ -23,21 +24,24 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ onClose, onSave }) 
     setLoading(true);
     setError('');
 
-    // Validações
-    if (!formData.name || !formData.ra || !formData.username || !formData.password) {
+    if (!formData.name || !formData.ra || !formData.cpf || !formData.username || !formData.password) {
       setError('Todos os campos são obrigatórios');
       setLoading(false);
       return;
     }
 
-    // Verificar se RA já existe
     if (employees.some(emp => emp.ra === formData.ra)) {
       setError('RA já está em uso');
       setLoading(false);
       return;
     }
+    
+    if (employees.some(emp => emp.cpf === formData.cpf)) {
+        setError('CPF já está em uso');
+        setLoading(false);
+        return;
+    }
 
-    // Verificar se username já existe
     if (employees.some(emp => emp.username === formData.username)) {
       setError('Nome de usuário já está em uso');
       setLoading(false);
@@ -94,22 +98,42 @@ const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ onClose, onSave }) 
             </div>
           </div>
 
-          <div>
-            <label htmlFor="ra" className="block text-sm font-medium text-gray-700 mb-2">
-              RA (Registro do Funcionário)
-            </label>
-            <div className="relative">
-              <IdCard className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                id="ra"
-                name="ra"
-                value={formData.ra}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Digite o RA"
-                required
-              />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="ra" className="block text-sm font-medium text-gray-700 mb-2">
+                RA
+              </label>
+              <div className="relative">
+                <BadgeInfo className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  id="ra"
+                  name="ra"
+                  value={formData.ra}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="001"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="cpf" className="block text-sm font-medium text-gray-700 mb-2">
+                CPF
+              </label>
+              <div className="relative">
+                <ClipboardIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  id="cpf"
+                  name="cpf"
+                  value={formData.cpf}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="000.000.000-00"
+                  required
+                />
+              </div>
             </div>
           </div>
 

@@ -1,34 +1,35 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTimeEntry } from '../contexts/TimeEntryContext';
-import { 
-  Users, 
-  UserPlus, 
-  BarChart3, 
-  LogOut, 
+import {
+  Users,
+  UserPlus,
+  BarChart3,
+  LogOut,
   Calendar,
   Clock,
   Edit2,
   Trash2,
   Download,
-  Filter
+  Filter,
+  FileText
 } from 'lucide-react';
 import AddEmployeeModal from './AddEmployeeModal';
 import EmployeeReports from './EmployeeReports';
 
 const AdminDashboard: React.FC = () => {
-  const { user, employees, logout, deleteEmployee } = useAuth();
-  const { timeEntries } = useTimeEntry();
+  const { user, employees, logout, toggleEmployeeActive } = useAuth();
+  const { timeEntries, gerarAFDT } = useTimeEntry();
   const [showAddModal, setShowAddModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'employees' | 'reports'>('employees');
 
-  const handleDeleteEmployee = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este funcionário?')) {
-      deleteEmployee(id);
+  const handleToggleEmployeeActive = (id: string) => {
+    if (window.confirm('Tem certeza que deseja alterar o status deste funcionário?')) {
+      toggleEmployeeActive(id);
     }
   };
 
-  const getTotalEmployees = () => employees.length;
+  const getTotalEmployees = () => employees.filter(emp => !emp.inactive).length;
   const getTodayEntries = () => {
     const today = new Date().toISOString().split('T')[0];
     return timeEntries.filter(entry => entry.date === today).length;
@@ -105,21 +106,19 @@ const AdminDashboard: React.FC = () => {
             <nav className="flex space-x-8 px-6">
               <button
                 onClick={() => setActiveTab('employees')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'employees'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'employees'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
               >
                 Funcionários
               </button>
               <button
                 onClick={() => setActiveTab('reports')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'reports'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'reports'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
               >
                 Relatórios
               </button>
@@ -151,10 +150,16 @@ const AdminDashboard: React.FC = () => {
                           RA
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          CPF
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Usuário
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Data de Cadastro
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ações
@@ -162,13 +167,17 @@ const AdminDashboard: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {employees.map((employee) => (
+                      {/* ADICIONADA UMA VERIFICAÇÃO PARA GARANTIR QUE 'employees' É UM ARRAY */}
+                      {Array.isArray(employees) && employees.map((employee) => (
                         <tr key={employee.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{employee.name}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">{employee.ra}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{employee.cpf || 'N/A'}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">{employee.username}</div>
@@ -178,12 +187,22 @@ const AdminDashboard: React.FC = () => {
                               {new Date(employee.createdAt).toLocaleDateString('pt-BR')}
                             </div>
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${employee.inactive
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-green-100 text-green-800'
+                                }`}
+                            >
+                              {employee.inactive ? 'Inativo' : 'Ativo'}
+                            </span>
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                             <button className="text-blue-600 hover:text-blue-900 transition-colors">
                               <Edit2 className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => handleDeleteEmployee(employee.id)}
+                              onClick={() => handleToggleEmployeeActive(employee.id)}
                               className="text-red-600 hover:text-red-900 transition-colors"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -196,7 +215,19 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <EmployeeReports />
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-lg font-semibold text-gray-900">Relatórios</h2>
+                  <button
+                    onClick={() => gerarAFDT('2023-01-01', new Date().toISOString().split('T')[0])}
+                    className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span>Gerar AFD</span>
+                  </button>
+                </div>
+                <EmployeeReports />
+              </div>
             )}
           </div>
         </div>

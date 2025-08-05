@@ -8,7 +8,7 @@ interface AuthContextType {
   logout: () => void;
   addEmployee: (employee: Omit<Employee, 'id' | 'createdAt'>) => void;
   updateEmployee: (id: string, employee: Partial<Employee>) => void;
-  deleteEmployee: (id: string) => void;
+  toggleEmployeeActive: (id: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,19 +28,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
     const storedEmployees = localStorage.getItem('employees');
-    
+
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
-    
+
     if (storedEmployees) {
-      setEmployees(JSON.parse(storedEmployees));
+      // Lógica de "migração": Garante que todos os funcionários tenham o campo CPF
+      const parsedEmployees: Employee[] = JSON.parse(storedEmployees);
+      const migratedEmployees = parsedEmployees.map(emp => ({
+        ...emp,
+        cpf: emp.cpf || 'N/A' // Adiciona 'N/A' se o CPF não existir
+      }));
+      setEmployees(migratedEmployees);
+
     } else {
-      // Funcionário padrão para demonstração
       const defaultEmployee: Employee = {
         id: '1',
         name: 'João Silva',
         ra: '001',
+        cpf: '111.111.111-11',
         username: 'joao.silva',
         password: '123456',
         createdAt: new Date(),
@@ -64,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Employee login
-    const employee = employees.find(emp => emp.username === username && emp.password === password);
+    const employee = employees.find(emp => emp.username === username && emp.password === password && !emp.inactive);
     if (employee) {
       const employeeUser: User = {
         id: employee.id,
@@ -91,22 +98,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: Date.now().toString(),
       createdAt: new Date(),
     };
-    
+
     const updatedEmployees = [...employees, newEmployee];
     setEmployees(updatedEmployees);
     localStorage.setItem('employees', JSON.stringify(updatedEmployees));
   };
 
   const updateEmployee = (id: string, employeeData: Partial<Employee>) => {
-    const updatedEmployees = employees.map(emp => 
+    const updatedEmployees = employees.map(emp =>
       emp.id === id ? { ...emp, ...employeeData } : emp
     );
     setEmployees(updatedEmployees);
     localStorage.setItem('employees', JSON.stringify(updatedEmployees));
   };
 
-  const deleteEmployee = (id: string) => {
-    const updatedEmployees = employees.filter(emp => emp.id !== id);
+  const toggleEmployeeActive = (id: string) => {
+    const updatedEmployees = employees.map(emp =>
+      emp.id === id ? { ...emp, inactive: !emp.inactive } : emp
+    );
     setEmployees(updatedEmployees);
     localStorage.setItem('employees', JSON.stringify(updatedEmployees));
   };
@@ -119,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout,
       addEmployee,
       updateEmployee,
-      deleteEmployee,
+      toggleEmployeeActive,
     }}>
       {children}
     </AuthContext.Provider>

@@ -2,9 +2,11 @@ export interface Employee {
   id: string;
   name: string;
   ra: string;
+  cpf: string; // Adicionado
   username: string;
   password: string;
   createdAt: Date;
+  inactive?: boolean;
 }
 
 export interface TimeEntry {
@@ -16,6 +18,7 @@ export interface TimeEntry {
   lunchEnd?: string;
   clockOut?: string;
   createdAt: Date;
+  hash?: string;
 }
 
 export interface User {

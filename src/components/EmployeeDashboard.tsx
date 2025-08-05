@@ -10,16 +10,23 @@ import {
   ArrowRight,
   CheckCircle,
   XCircle,
-  History
+  History,
+  Download
 } from 'lucide-react';
 import { TimeEntryType } from '../types';
+
+interface EntryResult {
+  message: string;
+  type: 'success' | 'error';
+  pdfBlob?: Blob;
+}
 
 const EmployeeDashboard: React.FC = () => {
   const { user, employees, logout } = useAuth();
   const { addTimeEntry, getTodayEntry, getEmployeeEntries } = useTimeEntry();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState<'success' | 'error'>('success');
+  // Novo estado para controlar a mensagem e o blob do PDF
+  const [entryResult, setEntryResult] = useState<EntryResult | null>(null);
 
   const currentEmployee = employees.find(emp => emp.id === user?.employeeId);
   const todayEntry = getTodayEntry(user?.employeeId || '');
@@ -36,17 +43,39 @@ const EmployeeDashboard: React.FC = () => {
   const handleTimeEntry = async (type: TimeEntryType) => {
     if (!user?.employeeId) return;
 
-    const success = await addTimeEntry(user.employeeId, type);
+    // Limpa a mensagem anterior
+    setEntryResult(null);
+
+    const result = await addTimeEntry(user.employeeId, type);
     
-    if (success) {
-      setMessage('Registro realizado com sucesso!');
-      setMessageType('success');
+    if (result.success) {
+      setEntryResult({
+        message: 'Ponto registrado com sucesso!',
+        type: 'success',
+        pdfBlob: result.pdfBlob,
+      });
     } else {
-      setMessage('Este tipo de registro já foi feito hoje!');
-      setMessageType('error');
+      setEntryResult({
+        message: 'Este tipo de registro já foi feito hoje!',
+        type: 'error',
+      });
     }
 
-    setTimeout(() => setMessage(''), 3000);
+    // A mensagem desaparecerá após 5 segundos
+    setTimeout(() => setEntryResult(null), 5000);
+  };
+
+  const handleDownloadReceipt = () => {
+    if (entryResult?.pdfBlob) {
+      const url = URL.createObjectURL(entryResult.pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Comprovante_${currentEmployee?.name?.replace(/ /g, '_')}_${new Date().getTime()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
   };
 
   const timeEntryButtons = [
@@ -95,6 +124,7 @@ const EmployeeDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow-sm border-b border-gray-200">
+        {/* ... O resto da sua navBar ... */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
@@ -128,24 +158,36 @@ const EmployeeDashboard: React.FC = () => {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {message && (
-          <div className={`mb-6 p-4 rounded-lg border ${
-            messageType === 'success' 
+        {/* Bloco de mensagem dinâmica */}
+        {entryResult && (
+          <div className={`mb-6 p-4 rounded-lg border flex justify-between items-center ${
+            entryResult.type === 'success' 
               ? 'bg-green-50 border-green-200 text-green-800' 
               : 'bg-red-50 border-red-200 text-red-800'
           }`}>
             <div className="flex items-center">
-              {messageType === 'success' ? (
+              {entryResult.type === 'success' ? (
                 <CheckCircle className="h-5 w-5 mr-2" />
               ) : (
                 <XCircle className="h-5 w-5 mr-2" />
               )}
-              {message}
+              {entryResult.message}
             </div>
+            {/* Botão de download condicional */}
+            {entryResult.type === 'success' && entryResult.pdfBlob && (
+              <button
+                onClick={handleDownloadReceipt}
+                className="bg-white text-green-800 border border-green-800 px-3 py-1 rounded-md text-sm font-medium hover:bg-green-800 hover:text-white transition-colors flex items-center space-x-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>Baixar Comprovante</span>
+              </button>
+            )}
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* ... O resto do seu dashboard ... */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 mb-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-6">Registrar Ponto</h2>

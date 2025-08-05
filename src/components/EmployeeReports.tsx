@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTimeEntry } from '../contexts/TimeEntryContext';
 import { Calendar, Download, Filter, Clock, User } from 'lucide-react';
+import { TimeEntry } from '../types';
 
 const EmployeeReports: React.FC = () => {
   const { employees } = useAuth();
@@ -13,6 +14,10 @@ const EmployeeReports: React.FC = () => {
   });
 
   const filteredEntries = useMemo(() => {
+    // Adiciona uma verificação para garantir que timeEntries é um array
+    if (!Array.isArray(timeEntries)) {
+      return [];
+    }
     return timeEntries.filter(entry => {
       const matchesEmployee = !selectedEmployee || entry.employeeId === selectedEmployee;
       const matchesDate = entry.date >= dateRange.start && entry.date <= dateRange.end;
@@ -24,24 +29,28 @@ const EmployeeReports: React.FC = () => {
     const employee = employees.find(emp => emp.id === employeeId);
     return employee?.name || 'Funcionário não encontrado';
   };
+  
+  const getEmployeeCPF = (employeeId: string) => {
+    const employee = employees.find(emp => emp.id === employeeId);
+    return employee?.cpf || 'N/A';
+  };
 
   const getEmployeeRA = (employeeId: string) => {
     const employee = employees.find(emp => emp.id === employeeId);
     return employee?.ra || 'N/A';
   };
 
-  const calculateWorkingHours = (entry: any) => {
+  const calculateWorkingHours = (entry: TimeEntry) => {
     if (!entry.clockIn || !entry.clockOut) return 'Incompleto';
     
-    const clockIn = new Date(`2000-01-01 ${entry.clockIn}`);
-    const clockOut = new Date(`2000-01-01 ${entry.clockOut}`);
+    const clockIn = new Date(`2000-01-01T${entry.clockIn}`);
+    const clockOut = new Date(`2000-01-01T${entry.clockOut}`);
     
     let totalMinutes = (clockOut.getTime() - clockIn.getTime()) / (1000 * 60);
     
-    // Subtrair tempo de almoço se disponível
     if (entry.lunchStart && entry.lunchEnd) {
-      const lunchStart = new Date(`2000-01-01 ${entry.lunchStart}`);
-      const lunchEnd = new Date(`2000-01-01 ${entry.lunchEnd}`);
+      const lunchStart = new Date(`2000-01-01T${entry.lunchStart}`);
+      const lunchEnd = new Date(`2000-01-01T${entry.lunchEnd}`);
       const lunchMinutes = (lunchEnd.getTime() - lunchStart.getTime()) / (1000 * 60);
       totalMinutes -= lunchMinutes;
     }
@@ -53,28 +62,53 @@ const EmployeeReports: React.FC = () => {
   };
 
   const exportToCSV = () => {
-    const csvData = filteredEntries.map(entry => ({
-      'Nome': getEmployeeName(entry.employeeId),
-      'RA': getEmployeeRA(entry.employeeId),
-      'Data': new Date(entry.date).toLocaleDateString('pt-BR'),
-      'Entrada': entry.clockIn || '',
-      'Início Almoço': entry.lunchStart || '',
-      'Fim Almoço': entry.lunchEnd || '',
-      'Saída': entry.clockOut || '',
-      'Horas Trabalhadas': calculateWorkingHours(entry),
-    }));
+    const headers = [
+      'Nome',
+      'RA',
+      'CPF',
+      'Data',
+      'Entrada',
+      'Início Almoço',
+      'Fim Almoço',
+      'Saída',
+      'Horas Trabalhadas',
+    ];
 
-    const csv = [
-      Object.keys(csvData[0] || {}).join(','),
-      ...csvData.map(row => Object.values(row).join(','))
+    const formatValue = (value: any): string => {
+        const stringValue = String(value ?? '');
+        return `"${stringValue.replace(/"/g, '""')}"`;
+    };
+
+    const rows = filteredEntries.map(entry => {
+        const rowData = [
+            getEmployeeName(entry.employeeId),
+            getEmployeeRA(entry.employeeId),
+            getEmployeeCPF(entry.employeeId),
+            new Date(entry.date + 'T00:00:00').toLocaleDateString('pt-BR'),
+            entry.clockIn || '',
+            entry.lunchStart || '',
+            entry.lunchEnd || '',
+            entry.clockOut || '',
+            calculateWorkingHours(entry)
+        ];
+        return rowData.map(formatValue).join(';');
+    });
+
+    const csvContent = [
+        headers.map(formatValue).join(';'),
+        ...rows
     ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    
+    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
+
     link.href = URL.createObjectURL(blob);
-    link.download = `relatorio_pontos_${dateRange.start}_${dateRange.end}.csv`;
+    link.download = `relatorio_pontos_${dateRange.start}_a_${dateRange.end}.csv`;
     link.click();
+    URL.revokeObjectURL(link.href);
   };
+
 
   return (
     <div>
@@ -82,7 +116,8 @@ const EmployeeReports: React.FC = () => {
         <h2 className="text-lg font-semibold text-gray-900">Relatórios de Ponto</h2>
         <button
           onClick={exportToCSV}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+          disabled={filteredEntries.length === 0}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           <Download className="h-4 w-4" />
           <span>Exportar CSV</span>
@@ -101,7 +136,8 @@ const EmployeeReports: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Todos os funcionários</option>
-              {employees.map(employee => (
+              {/* Adiciona verificação para garantir que 'employees' é um array */}
+              {Array.isArray(employees) && employees.filter(e => !e.inactive).map(employee => (
                 <option key={employee.id} value={employee.id}>
                   {employee.name} (RA: {employee.ra})
                 </option>
@@ -182,7 +218,7 @@ const EmployeeReports: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(entry.date).toLocaleDateString('pt-BR')}
+                    {new Date(entry.date + 'T00:00:00').toLocaleDateString('pt-BR')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {entry.clockIn || '--:--'}

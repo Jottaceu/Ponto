@@ -1,29 +1,35 @@
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { Employee, TimeEntry } from '../types';
 
-export async function gerarEspelhoPDF({ funcionario, registros, mesReferencia }: {
-  funcionario: { nome: string, ra: string, cpf: string },
-  registros: { type: string, timestamp: string }[],
-  mesReferencia: string
-}) {
+export function gerarComprovantePDF(employee: Employee, timeEntry: TimeEntry, type: keyof TimeEntry, time: string) {
   const doc = new jsPDF();
 
   doc.setFontSize(14);
-  doc.text('Espelho de Ponto Mensal', 105, 15, { align: 'center' });
+  doc.text('Comprovante de Registro de Ponto do Trabalhador', 105, 15, { align: 'center' });
 
   doc.setFontSize(10);
-  doc.text(\`Funcionário: \${funcionario.nome}\`, 14, 30);
-  doc.text(\`RA: \${funcionario.ra}    CPF: \${funcionario.cpf}\`, 14, 36);
-  doc.text(\`Mês de Referência: \${mesReferencia}\`, 14, 42);
+  doc.text(`Empregador: NOME DA EMPRESA`, 14, 30);
+  doc.text(`CNPJ: XX.XXX.XXX/XXXX-XX`, 14, 36);
+  doc.text(`Endereço: ENDEREÇO DA EMPRESA`, 14, 42);
 
-  autoTable(doc, {
-    head: [['Data/Hora', 'Tipo']],
-    body: registros.map(r => [
-      new Date(r.timestamp).toLocaleString(),
-      r.type
-    ]),
-    startY: 50
+  doc.text(`----------------------------------------------------------------------------------------------------`, 14, 50)
+
+  doc.text(`Funcionário: ${employee.name}`, 14, 60);
+  doc.text(`CPF: XXX.XXX.XXX-XX`, 14, 66);
+  doc.text(`Data e Hora: ${new Date(timeEntry.date).toLocaleDateString('pt-BR')} ${time}`, 14, 72);
+  doc.text(`Tipo de Registro: ${type}`, 14, 78);
+  doc.text(`NSR: ${timeEntry.id}`, 14, 84);
+  doc.text(`Hash (SHA-256): ${timeEntry.hash}`, 14, 90, {
+    maxWidth: 180,
   });
 
-  doc.save(\`Espelho_Ponto_\${mesReferencia.replace('-', '_')}.pdf\`);
+
+  doc.text(`----------------------------------------------------------------------------------------------------`, 14, 100)
+
+
+  doc.text('Assinatura Eletrônica:', 14, 110);
+  doc.text('________________________________', 14, 120);
+
+
+  doc.save(`Comprovante_${employee.name.replace(/ /g, '_')}_${timeEntry.date}.pdf`);
 }
